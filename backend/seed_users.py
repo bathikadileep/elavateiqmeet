@@ -53,6 +53,15 @@ def seed():
             ("admin", "admin@elevateiq.com", "Password123!", "ElevateIQ Admin", "super_admin"),
             ("hostuser", "host@elevateiq.com", "Password123!", "Sarah Host", "host"),
             ("user1", "user1@elevateiq.com", "Password123!", "Alex Participant", "participant"),
+            ("user2", "user2@elevateiq.com", "Password123!", "David Miller", "participant"),
+            ("user3", "user3@elevateiq.com", "Password123!", "Emma Watson", "participant"),
+            ("user4", "user4@elevateiq.com", "Password123!", "James Wilson", "participant"),
+            ("user5", "user5@elevateiq.com", "Password123!", "Sophia Chen", "participant"),
+            ("user6", "user6@elevateiq.com", "Password123!", "Liam Johnson", "participant"),
+            ("user7", "user7@elevateiq.com", "Password123!", "Olivia Garcia", "participant"),
+            ("user8", "user8@elevateiq.com", "Password123!", "Noah Martinez", "participant"),
+            ("user9", "user9@elevateiq.com", "Password123!", "Ava Robinson", "participant"),
+            ("user10", "user10@elevateiq.com", "Password123!", "Lucas Taylor", "participant"),
         ]
 
         for username, email, raw_pwd, display_name, role_key in users_def:

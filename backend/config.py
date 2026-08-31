@@ -24,7 +24,9 @@ def _parse_db_url(raw: str) -> str:
     requires these to be passed via connect_args instead.
     """
     import re as _re
-    url = raw
+    if not raw:
+        return ""
+    url = raw.strip()
     for prefix, replacement in [
         ("postgresql+pg8000://", "postgresql+pg8000://"),
         ("postgresql://",        "postgresql+pg8000://"),
@@ -37,7 +39,7 @@ def _parse_db_url(raw: str) -> str:
     # Strip unsupported query params (sslmode, channel_binding)
     # pg8000 uses ssl_context=True via connect_args, not URL params
     url = _re.sub(r'\?.*$', '', url)
-    return url
+    return url.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -46,13 +48,13 @@ def _parse_db_url(raw: str) -> str:
 
 class Config:
     # ── Flask Core ──────────────────────────────────────────────────────────
-    SECRET_KEY      = os.getenv("SECRET_KEY", "change-me-in-production-!elevateiq")
+    SECRET_KEY      = os.getenv("SECRET_KEY", "change-me-in-production-!elevateiq").strip()
     APP_NAME        = "ElevateIQ Meeting Platform"
     API_VERSION     = "v1"
     API_PREFIX      = "/api/v1"
 
     # ── SQLAlchemy ──────────────────────────────────────────────────────────
-    _raw_db_url = os.getenv("DATABASE_URL", "")
+    _raw_db_url = os.getenv("DATABASE_URL", "").strip()
     if _raw_db_url:
         SQLALCHEMY_DATABASE_URI = _parse_db_url(_raw_db_url)
     else:
