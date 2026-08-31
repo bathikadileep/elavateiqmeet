@@ -6,7 +6,7 @@ import VideoGrid from '../components/room/VideoGrid';
 import ControlBar from '../components/room/ControlBar';
 import ChatDrawer from '../components/chat/ChatDrawer';
 import Badge from '../components/common/Badge';
-import { Video, ShieldCheck, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Video, ShieldCheck, Copy, Check, AlertTriangle, Share2 } from 'lucide-react';
 
 export const MeetingRoom: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -30,6 +30,7 @@ export const MeetingRoom: React.FC = () => {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
 
   // Session timer
@@ -50,6 +51,32 @@ export const MeetingRoom: React.FC = () => {
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareInvite = async () => {
+    const inviteLink = `${window.location.origin}/room/${roomCode}`;
+    const shareText = `Join my ElevateIQ Meet video conference:\nMeeting Code: ${roomCode}\nLink: ${inviteLink}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ElevateIQ Meeting Invite',
+          text: shareText,
+          url: inviteLink,
+        });
+        return;
+      } catch (err) {
+        // Fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2500);
+    } catch (err) {
+      console.warn('Clipboard copy failed:', err);
+    }
   };
 
   const handleLeave = () => {
@@ -81,6 +108,24 @@ export const MeetingRoom: React.FC = () => {
             className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer ml-1"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={handleShareInvite}
+            title="Share Meeting Link with Participants"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-200 text-xs font-semibold transition-all cursor-pointer shadow-sm ml-1"
+          >
+            {inviteCopied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-indigo-300" />
+                <span className="hidden sm:inline">Invite / Share</span>
+              </>
+            )}
           </button>
         </div>
 

@@ -1,10 +1,16 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { Capacitor } from '@capacitor/core';
 import { ApiError, type ApiErrorResponse } from '../types/api';
 
 const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  return `http://${host}:5000/api/v1`;
+  if (Capacitor.isNativePlatform()) {
+    return 'https://butterfly-words-racing-domain.trycloudflare.com/api/v1';
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5001/api/v1';
+  }
+  return 'https://butterfly-words-racing-domain.trycloudflare.com/api/v1';
 };
 
 export const apiClient = axios.create({

@@ -31,6 +31,10 @@ log = logging.getLogger("elevateiq.dashboard")
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/v1/dashboard")
 
+# In-memory TTL cache to eliminate database roundtrips on dashboard loads
+_OVERVIEW_CACHE = {}
+_CACHE_TTL_SECONDS = 30
+
 
 # ── Overview (All-in-one endpoint for fast Dashboard load) ─────────────────────
 
@@ -42,6 +46,14 @@ def get_overview():
     Returns aggregate payload for instant single-roundtrip dashboard rendering.
     """
     user_id = get_jwt_identity()
+
+    # Check cache first
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if user_id in _OVERVIEW_CACHE:
+        cached_ts, cached_payload = _OVERVIEW_CACHE[user_id]
+        if now_ts - cached_ts < _CACHE_TTL_SECONDS:
+            return jsonify(cached_payload), 200
+
     user = db.session.get(User, user_id)
     if not user or user.is_deleted:
         raise AuthenticationError("User session is no longer active.")
@@ -152,13 +164,16 @@ def get_overview():
             "duration_seconds": item.duration_seconds,
         })
 
-    return jsonify({
+    payload = {
         "stats": stats,
         "todays_meetings": today_meetings,
         "upcoming_meetings": upcoming_meetings,
         "notifications": notifications,
         "recent_activity": activity_feed,
-    }), 200
+    }
+    _OVERVIEW_CACHE[user_id] = (now_ts, payload)
+
+    return jsonify(payload), 200
 
 
 # ── Notifications Read Toggle ────────────────────────────────────────────────

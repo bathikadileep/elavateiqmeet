@@ -140,10 +140,10 @@ class TestingConfig(Config):
 class ProductionConfig(Config):
     DEBUG       = False
     TESTING     = False
-    LOG_LEVEL   = os.getenv("LOG_LEVEL", "WARNING")
-    LOG_TO_FILE = True
+    LOG_LEVEL   = os.getenv("LOG_LEVEL", "INFO")
+    LOG_TO_FILE = os.getenv("LOG_TO_FILE", "False").lower() in ("true", "1", "yes")
 
-    JWT_COOKIE_SECURE = True    # Must be True with HTTPS in production
+    JWT_COOKIE_SECURE = os.getenv("JWT_COOKIE_SECURE", "True").lower() in ("true", "1", "yes")
 
     SQLALCHEMY_ENGINE_OPTIONS = {
         **Config.SQLALCHEMY_ENGINE_OPTIONS,

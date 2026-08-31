@@ -31,28 +31,69 @@ export const useWebRTC = (roomCode: string) => {
   const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Initialize Local Media Stream (Camera & Microphone) with Ultra-Low Latency Settings
+  // Initialize Local Media Stream (Camera & Microphone) with Resilient Fallbacks
   const initLocalStream = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaError('Camera and microphone are not supported in this environment.');
+      return null;
+    }
+
+    // Attempt 1: Optimal video + audio constraints
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { max: 1280, ideal: 854 },
+          width: { max: 1280, ideal: 640 },
           height: { max: 720, ideal: 480 },
-          frameRate: { max: 30, ideal: 24 },
+          facingMode: 'user',
         },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000,
         },
       });
       localStreamRef.current = stream;
       setLocalStream(stream);
       setMediaError(null);
       return stream;
-    } catch (err) {
-      console.warn('Camera/Microphone access fallback:', err);
-      setMediaError('Unable to access camera or microphone. Operating in view-only mode.');
+    } catch (err1) {
+      console.warn('Optimal media constraints failed, falling back to basic { video: true, audio: true }:', err1);
+    }
+
+    // Attempt 2: Basic { video: true, audio: true }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setMediaError(null);
+      return stream;
+    } catch (err2) {
+      console.warn('Basic media constraints failed, trying audio only:', err2);
+    }
+
+    // Attempt 3: Audio only
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsVideoOff(true);
+      setMediaError('Camera could not be accessed. Joined with audio only.');
+      return stream;
+    } catch (err3) {
+      console.warn('Audio only failed, trying video only:', err3);
+    }
+
+    // Attempt 4: Video only
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsAudioMuted(true);
+      setMediaError('Microphone could not be accessed. Joined with video only.');
+      return stream;
+    } catch (err4) {
+      console.error('All media device acquisition attempts failed:', err4);
+      setMediaError('Unable to access camera or microphone. Please check app permissions in your phone settings.');
       return null;
     }
   }, []);
@@ -325,6 +366,10 @@ export const useWebRTC = (roomCode: string) => {
     } else {
       // Start Screen Share
       try {
+        if (!navigator.mediaDevices?.getDisplayMedia) {
+          alert('Screen sharing is available when using desktop browsers (Chrome, Edge, Firefox, Safari). Mobile devices do not support browser screen capture.');
+          return;
+        }
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = screenStream;
         setIsScreenSharing(true);

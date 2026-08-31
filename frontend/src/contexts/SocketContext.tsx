@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../hooks/useAuth';
 import type { ChatMessage, RoomUser, TypingUser } from '../types/chat';
 
@@ -22,8 +23,13 @@ export const SocketContext = createContext<SocketContextType | undefined>(undefi
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  return `http://${host}:5000`;
+  if (Capacitor.isNativePlatform()) {
+    return 'https://butterfly-words-racing-domain.trycloudflare.com';
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5001';
+  }
+  return 'https://butterfly-words-racing-domain.trycloudflare.com';
 };
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

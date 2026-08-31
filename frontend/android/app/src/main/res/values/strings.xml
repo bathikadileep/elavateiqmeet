@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ElevateIQ Meet</string>
+    <string name="title_activity_main">ElevateIQ Meet</string>
+    <string name="package_name">com.elevateiq.meet</string>
+    <string name="custom_url_scheme">com.elevateiq.meet</string>
+</resources>
