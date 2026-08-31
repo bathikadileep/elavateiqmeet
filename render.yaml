@@ -10,10 +10,12 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-class eventlet -w 1 wsgi:app
+    startCommand: gunicorn --worker-class gthread --threads 50 -w 1 wsgi:app
     plan: free
     autoDeploy: true
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
