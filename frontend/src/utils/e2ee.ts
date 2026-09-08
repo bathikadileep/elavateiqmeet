@@ -95,3 +95,21 @@ export class WebRTCE2EEEngine {
     });
   }
 }
+
+export class E2EEManager {
+  private engine: WebRTCE2EEEngine = new WebRTCE2EEEngine();
+  private currentKey: string = '';
+
+  public async setKey(passphrase: string): Promise<void> {
+    this.currentKey = passphrase;
+    await this.engine.initializeKey(passphrase);
+  }
+
+  public getKey(): string {
+    return this.currentKey;
+  }
+
+  public getEngine(): WebRTCE2EEEngine {
+    return this.engine;
+  }
+}

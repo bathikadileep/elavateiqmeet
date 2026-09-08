@@ -27,6 +27,7 @@ cors     = CORS()
 socketio = SocketIO(
     async_mode="threading",   # Compatible with Python 3.14 on Windows (no eventlet monkey-patch)
     cors_allowed_origins="*", # Overridden inside create_app() with config values
+    manage_session=False,     # Flask 3.1 compatibility (session is read-only property on RequestContext)
     logger=False,
     engineio_logger=False,
 )

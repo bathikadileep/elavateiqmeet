@@ -187,5 +187,5 @@ if __name__ == "__main__":
         port=int(os.getenv("PORT", 5000)),
         debug=True,
         allow_unsafe_werkzeug=True,
-        use_reloader=True,
+        use_reloader=False,
     )
