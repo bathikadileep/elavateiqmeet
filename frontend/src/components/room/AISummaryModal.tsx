@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Bot, Sparkles, CheckCircle2, ListTodo, Download, RefreshCw, Smile } from 'lucide-react';
 import client from '../../api/client';
 import type { MeetingSummaryItem } from '../../types/ai';
@@ -12,21 +12,11 @@ export interface AISummaryModalProps {
 export const AISummaryModal: React.FC<AISummaryModalProps> = ({ isOpen, onClose, roomCode }) => {
   const [summary, setSummary] = useState<MeetingSummaryItem | null>(null);
   const [loading, setLoading] = useState(false);
+  const isGeneratingRef = useRef(false);
 
-  const fetchSummary = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await client.get<MeetingSummaryItem>(`/api/summaries/meeting/${roomCode}`);
-      setSummary(res.data);
-    } catch (err) {
-      // Summary not generated yet, attempt auto-generating
-      handleGenerate();
-    } finally {
-      setLoading(false);
-    }
-  }, [roomCode]);
-
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     try {
       setLoading(true);
       const res = await client.post<MeetingSummaryItem>('/api/summaries/generate', {
@@ -37,14 +27,29 @@ export const AISummaryModal: React.FC<AISummaryModalProps> = ({ isOpen, onClose,
       console.warn('Failed generating summary:', err);
     } finally {
       setLoading(false);
+      isGeneratingRef.current = false;
     }
-  };
+  }, [roomCode]);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await client.get<MeetingSummaryItem>(`/api/summaries/meeting/${roomCode}`);
+      setSummary(res.data);
+    } catch (err) {
+      // Summary not generated yet, attempt auto-generating safely
+      await handleGenerate();
+    } finally {
+      setLoading(false);
+    }
+  }, [roomCode, handleGenerate]);
 
   useEffect(() => {
     if (isOpen) {
       fetchSummary();
     }
   }, [isOpen, fetchSummary]);
+
 
   if (!isOpen) return null;
 
