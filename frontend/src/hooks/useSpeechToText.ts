@@ -15,16 +15,21 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
   const [activeSubtitle, setActiveSubtitle] = useState<SpeechTranscriptItem | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const debounceTimerRef = useRef<any>(null);
+  const lastLoggedTextRef = useRef<string>('');
 
   useEffect(() => {
     // Listen for remote subtitles via Socket.IO
     if (!socket) return;
 
     const handleRemoteSpeech = (data: { sender_sid: string; speaker_name: string; text: string; is_final: boolean }) => {
+      const trimmedText = (data.text || '').trim();
+      if (!trimmedText) return;
+
       const item: SpeechTranscriptItem = {
         id: Math.random().toString(36).substring(2, 9),
-        speaker_name: data.speaker_name,
-        text: data.text,
+        speaker_name: data.speaker_name || 'Speaker',
+        text: trimmedText,
         is_final: data.is_final,
         timestamp: new Date().toISOString(),
       };
@@ -38,6 +43,9 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
     socket.on('speech_transcript_event', handleRemoteSpeech);
     return () => {
       socket.off('speech_transcript_event', handleRemoteSpeech);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
   }, [socket]);
 
@@ -67,7 +75,8 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
           }
         }
 
-        const text = final || interim;
+        const text = (final || interim).trim();
+        // Guard 1: Reject empty or whitespace-only inputs
         if (!text) return;
 
         const item: SpeechTranscriptItem = {
@@ -89,14 +98,28 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
           });
         }
 
-        if (final) {
+        const cleanedFinal = final.trim();
+        if (cleanedFinal) {
+          // Guard 2: Consecutive deduplication check
+          if (cleanedFinal === lastLoggedTextRef.current) {
+            return;
+          }
+
           setCaptions((prev) => [...prev.slice(-10), item]);
-          // Log final transcript line to REST API
-          client.post('/api/summaries/transcript', {
-            meeting_code: roomCode,
-            speaker_name: speakerName,
-            transcript_text: final,
-          }).catch((err) => console.warn('Failed logging transcript line:', err));
+          lastLoggedTextRef.current = cleanedFinal;
+
+          // Guard 3: Debounce REST API logging to prevent 50K+ request flooding
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+
+          debounceTimerRef.current = setTimeout(() => {
+            client.post('/api/summaries/transcript', {
+              meeting_code: roomCode,
+              speaker_name: speakerName,
+              transcript_text: cleanedFinal,
+            }).catch((err) => console.warn('Failed logging transcript line:', err));
+          }, 600);
         }
       };
 
@@ -117,6 +140,9 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
   }, [socket, roomCode, speakerName]);
 
   const stopListening = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
@@ -131,3 +157,4 @@ export const useSpeechToText = ({ socket, roomCode, speakerName }: UseSpeechToTe
     stopListening,
   };
 };
+
