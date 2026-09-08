@@ -5,6 +5,8 @@ Handles in-app push notifications, HTML email invitation delivery, meeting remin
 and SMTP delivery queues with exponential retry logic.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import smtplib
@@ -46,7 +48,7 @@ class NotificationService:
         return True
 
     @staticmethod
-    def create_in_app_notification(user_id: str, notif_type: str, title: str, body: str) -> UserNotification:
+    def create_in_app_notification(user_id: str, notif_type: str, title: str, body: str) -> Notification:
         """Create and persist in-app notification badge item."""
         notif = Notification(
             user_id=user_id,
