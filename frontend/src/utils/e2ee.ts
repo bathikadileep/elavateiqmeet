@@ -1,78 +1,97 @@
 /**
- * ElevateIQ — WebRTC Insertable Streams AES-GCM-256 E2EE Engine
- * =============================================================
- * Zero-trust frame-level end-to-end encryption for WebRTC audio/video streams.
+ * ElevateIQ — WebRTC End-to-End Encryption (E2EE) & Insertable Streams
+ * ====================================================================
+ * Utilizes WebCrypto AES-GCM 128/256 and WebRTC TransformStream API to encrypt
+ * raw audio/video frames before WebRTC peer transport transmission.
  */
 
-export class E2EEManager {
+export interface E2EETransformOptions {
+  sharedKey: string;
+  enableVideoEncryption?: boolean;
+  enableAudioEncryption?: boolean;
+}
+
+export class WebRTCE2EEEngine {
   private cryptoKey: CryptoKey | null = null;
+  private keyVersion: number = 1;
 
-  async setKey(secretPassphrase: string) {
-    const enc = new TextEncoder();
-    const keyMaterial = await window.crypto.subtle.importKey(
+  public async initializeKey(secretPassphrase: string): Promise<void> {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secretPassphrase);
+    const keyHash = await window.crypto.subtle.digest('SHA-256', keyData);
+
+    this.cryptoKey = await window.crypto.subtle.importKey(
       'raw',
-      enc.encode(secretPassphrase),
-      'PBKDF2',
-      false,
-      ['deriveKey']
-    );
-
-    this.cryptoKey = await window.crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt: enc.encode('ElevateIQ-E2EE-Salt-2026'),
-        iterations: 100000,
-        hash: 'SHA-256',
-      },
-      keyMaterial,
+      keyHash,
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt', 'decrypt']
     );
   }
 
-  async encryptFrame(frame: any, controller: any) {
-    if (!this.cryptoKey) {
-      controller.enqueue(frame);
-      return;
-    }
+  public createSenderTransform(): TransformStream {
+    return new TransformStream({
+      transform: async (frame: any, controller: TransformStreamDefaultController) => {
+        if (!this.cryptoKey) {
+          controller.enqueue(frame);
+          return;
+        }
 
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await window.crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      this.cryptoKey,
-      frame.data
-    );
+        try {
+          const iv = window.crypto.getRandomValues(new Uint8Array(12));
+          const dataBuffer = new Uint8Array(frame.data);
 
-    const newBuffer = new Uint8Array(iv.length + encrypted.byteLength);
-    newBuffer.set(iv, 0);
-    newBuffer.set(new Uint8Array(encrypted), iv.length);
+          const encryptedBuffer = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            this.cryptoKey,
+            dataBuffer
+          );
 
-    frame.data = newBuffer.buffer;
-    controller.enqueue(frame);
+          const payload = new Uint8Array(12 + encryptedBuffer.byteLength);
+          payload.set(iv, 0);
+          payload.set(new Uint8Array(encryptedBuffer), 12);
+
+          frame.data = payload.buffer;
+          controller.enqueue(frame);
+        } catch (err) {
+          console.warn('E2EE encryption frame transform error:', err);
+          controller.enqueue(frame);
+        }
+      },
+    });
   }
 
-  async decryptFrame(frame: any, controller: any) {
-    if (!this.cryptoKey) {
-      controller.enqueue(frame);
-      return;
-    }
+  public createReceiverTransform(): TransformStream {
+    return new TransformStream({
+      transform: async (frame: any, controller: TransformStreamDefaultController) => {
+        if (!this.cryptoKey) {
+          controller.enqueue(frame);
+          return;
+        }
 
-    const data = new Uint8Array(frame.data);
-    const iv = data.subarray(0, 12);
-    const ciphertext = data.subarray(12);
+        try {
+          const dataBuffer = new Uint8Array(frame.data);
+          if (dataBuffer.byteLength < 13) {
+            controller.enqueue(frame);
+            return;
+          }
 
-    try {
-      const decrypted = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        this.cryptoKey,
-        ciphertext
-      );
-      frame.data = decrypted;
-      controller.enqueue(frame);
-    } catch (e) {
-      // Return unencrypted fallback if key mismatch
-      controller.enqueue(frame);
-    }
+          const iv = dataBuffer.subarray(0, 12);
+          const encryptedData = dataBuffer.subarray(12);
+
+          const decryptedBuffer = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            this.cryptoKey,
+            encryptedData
+          );
+
+          frame.data = decryptedBuffer;
+          controller.enqueue(frame);
+        } catch (err) {
+          console.warn('E2EE decryption frame transform error:', err);
+          controller.enqueue(frame);
+        }
+      },
+    });
   }
 }
