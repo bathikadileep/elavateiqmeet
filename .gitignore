@@ -76,5 +76,7 @@ frontend/android/local.properties
 Thumbs.db
 .vscode/
 .idea/
-*.swp
-*.swo
+# ── Test export artifacts ──────────────────────────────────────────────────
+compliance_exports_test/
+dsar_exports_flow_test/
+uploads_test/
