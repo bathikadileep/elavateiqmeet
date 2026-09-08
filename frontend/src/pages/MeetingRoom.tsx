@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../contexts/SocketContext';
 import VideoGrid from '../components/room/VideoGrid';
+import MultiStreamVideoCompositor from '../components/room/MultiStreamVideoCompositor';
 import ControlBar from '../components/room/ControlBar';
 import ChatDrawer from '../components/chat/ChatDrawer';
 import Badge from '../components/common/Badge';
-import { Video, ShieldCheck, Copy, Check, AlertTriangle, Share2 } from 'lucide-react';
+import { Video, ShieldCheck, Copy, Check, AlertTriangle, Share2, Layout } from 'lucide-react';
 
 export const MeetingRoom: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -32,6 +33,7 @@ export const MeetingRoom: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
+  const [useCompositor, setUseCompositor] = useState(true);
 
   // Session timer
   useEffect(() => {
@@ -130,7 +132,16 @@ export const MeetingRoom: React.FC = () => {
         </div>
 
         {/* Timer & Security Badge */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setUseCompositor((prev) => !prev)}
+            title={useCompositor ? 'Switch to Simple Grid' : 'Switch to Dynamic Compositor'}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs text-indigo-200 transition"
+          >
+            <Layout className="w-3.5 h-3.5" />
+            <span>{useCompositor ? 'Studio Layout' : 'Simple Grid'}</span>
+          </button>
+
           <div className="px-3 py-1.5 rounded-xl glass-card border border-white/10 text-xs font-mono font-bold text-indigo-300">
             {formatTimer(sessionSeconds)}
           </div>
@@ -152,9 +163,13 @@ export const MeetingRoom: React.FC = () => {
           </div>
         )}
 
-        {/* Video Canvas Grid */}
+        {/* Video Canvas Grid or Dynamic Compositor */}
         <div className="flex-1 overflow-hidden relative">
-          <VideoGrid streams={allStreams} />
+          {useCompositor ? (
+            <MultiStreamVideoCompositor streams={allStreams} />
+          ) : (
+            <VideoGrid streams={allStreams} />
+          )}
         </div>
 
         {/* Slide-over Real-Time Chat & Roster Drawer */}
