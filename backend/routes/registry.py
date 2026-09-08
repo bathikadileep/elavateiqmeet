@@ -94,6 +94,26 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(sso_bp)
     log.debug("Blueprint registered: sso")
 
+    # ── GDPR & Data Compliance ────────────────────────────────────────────────
+    from backend.routes.compliance import compliance_bp
+    app.register_blueprint(compliance_bp)
+    log.debug("Blueprint registered: compliance")
+
+    # ── AI Intelligence & Translation ─────────────────────────────────────────
+    from backend.routes.ai_intelligence import ai_intel_bp
+    app.register_blueprint(ai_intel_bp)
+    log.debug("Blueprint registered: ai_intelligence")
+
+    # ── Virtual Webinar & Events ──────────────────────────────────────────────
+    from backend.routes.webinar import webinar_bp
+    app.register_blueprint(webinar_bp)
+    log.debug("Blueprint registered: webinar")
+
+    # ── WebRTC Telemetry & QoE Analytics ──────────────────────────────────────
+    from backend.routes.telemetry import telemetry_bp
+    app.register_blueprint(telemetry_bp)
+    log.debug("Blueprint registered: telemetry")
+
     # ── Security Governance & SOC2 Audit ──────────────────────────────────────
     from backend.routes.security_audit import security_bp
     app.register_blueprint(security_bp)
