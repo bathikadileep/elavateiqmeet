@@ -3,6 +3,7 @@ import { X, Vote, Plus, BarChart2, CheckCircle2, Lock } from 'lucide-react';
 import client from '../../api/client';
 import type { PollItem } from '../../types/collaboration';
 import PollCreateModal from './PollCreateModal';
+import PollResultsVisualization from './PollResultsVisualization';
 
 export interface PollModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const PollModal: React.FC<PollModalProps> = ({ isOpen, onClose, roomCode 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedAnalyticsPollId, setExpandedAnalyticsPollId] = useState<string | null>(null);
 
   const fetchPolls = useCallback(async () => {
     try {
@@ -123,19 +125,35 @@ export const PollModal: React.FC<PollModalProps> = ({ isOpen, onClose, roomCode 
                     </span>
                   </div>
 
-                  {poll.is_published ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Published
-                    </span>
-                  ) : (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handlePublish(poll.id)}
-                      className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-300 text-xs font-semibold cursor-pointer"
+                      onClick={() => setExpandedAnalyticsPollId(expandedAnalyticsPollId === poll.id ? null : poll.id)}
+                      className="px-2.5 py-1 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 border border-indigo-500/30 transition"
                     >
-                      Publish Results
+                      <BarChart2 className="w-3.5 h-3.5" />
+                      {expandedAnalyticsPollId === poll.id ? 'Hide Charts' : 'Analytics'}
                     </button>
-                  )}
+                    {poll.is_published ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Published
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handlePublish(poll.id)}
+                        className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-300 text-xs font-semibold cursor-pointer"
+                      >
+                        Publish Results
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {expandedAnalyticsPollId === poll.id ? (
+                  <div className="pt-2">
+                    <PollResultsVisualization poll={poll} onRefresh={fetchPolls} />
+                  </div>
+                ) : (
+                  <>
 
                 {/* Option Voting list */}
                 <div className="space-y-2 pt-1">
@@ -175,6 +193,8 @@ export const PollModal: React.FC<PollModalProps> = ({ isOpen, onClose, roomCode 
                       Submit Vote
                     </button>
                   </div>
+                )}
+                  </>
                 )}
               </div>
             ))
