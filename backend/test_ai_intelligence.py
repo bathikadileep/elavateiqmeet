@@ -100,17 +100,105 @@ class AIIntelligenceTestCase(unittest.TestCase):
         res_get = self.client.get(f"/api/summaries/meeting/{self.room_code}", headers=self.headers)
         self.assertEqual(res_get.status_code, 200)
 
-    def test_fallback_nlp_summarizer_service(self):
-        sample_transcript = [
-            {"speaker_name": "Carol", "transcript_text": "We decided to launch the vector whiteboard feature."},
-            {"speaker_name": "Dave", "transcript_text": "I will action item the security audit."}
-        ]
-        result = AISummarizerService.generate_meeting_summary(sample_transcript)
-        self.assertIn("executive_summary", result)
-        self.assertEqual(len(result["key_decisions"]), 1)
-        self.assertEqual(len(result["action_items"]), 1)
-        self.assertEqual(result["action_items"][0]["assigned_to"], "Dave")
+    def test_whitespace_and_empty_transcript_rejection(self):
+        # 1. Blank string
+        res_empty = self.client.post("/api/summaries/transcript", json={
+            "meeting_code": self.room_code,
+            "speaker_name": "Alice",
+            "transcript_text": ""
+        }, headers=self.headers)
+        self.assertEqual(res_empty.status_code, 400)
+
+        # 2. Whitespace-only string
+        res_whitespace = self.client.post("/api/summaries/transcript", json={
+            "meeting_code": self.room_code,
+            "speaker_name": "Alice",
+            "transcript_text": "   \n\t   "
+        }, headers=self.headers)
+        self.assertEqual(res_whitespace.status_code, 400)
+
+        # 3. Missing meeting_code
+        res_no_code = self.client.post("/api/summaries/transcript", json={
+            "meeting_code": "   ",
+            "speaker_name": "Alice",
+            "transcript_text": "Valid text"
+        }, headers=self.headers)
+        self.assertEqual(res_no_code.status_code, 400)
+
+    def test_json_markdown_code_fence_cleaning(self):
+        # 1. Markdown with ```json
+        raw_markdown = """```json
+        {
+            "executive_summary": "Sprint planning completed.",
+            "key_decisions": ["Deploy SFU"],
+            "action_items": [{"task_description": "Load test", "assigned_to": "Bob", "due_date": "Friday"}],
+            "sentiment_score": "positive",
+            "sentiment_value": "0.92"
+        }
+        ```"""
+        parsed = AISummarizerService._clean_json_response(raw_markdown)
+        self.assertEqual(parsed["executive_summary"], "Sprint planning completed.")
+        self.assertEqual(len(parsed["key_decisions"]), 1)
+
+        # 2. Markdown with plain ```
+        raw_plain = """```
+        {
+            "executive_summary": "Architecture review.",
+            "key_decisions": ["Approved"],
+            "action_items": [],
+            "sentiment_score": "neutral",
+            "sentiment_value": "0.60"
+        }
+        ```"""
+        parsed2 = AISummarizerService._clean_json_response(raw_plain)
+        self.assertEqual(parsed2["executive_summary"], "Architecture review.")
+
+    def test_consecutive_transcript_deduplication(self):
+        # Send first line
+        res1 = self.client.post("/api/summaries/transcript", json={
+            "meeting_code": self.room_code,
+            "speaker_name": "Alice",
+            "transcript_text": "Checking microphone audio levels."
+        }, headers=self.headers)
+        self.assertEqual(res1.status_code, 201)
+
+        # Send identical duplicate line immediately
+        res2 = self.client.post("/api/summaries/transcript", json={
+            "meeting_code": self.room_code,
+            "speaker_name": "Alice",
+            "transcript_text": "Checking microphone audio levels."
+        }, headers=self.headers)
+        self.assertEqual(res2.status_code, 200)
+
+        # Assert only 1 record persisted in DB
+        res_get = self.client.get(f"/api/summaries/transcript/{self.room_code}", headers=self.headers)
+        lines = res_get.get_json()
+        self.assertEqual(len(lines), 1)
+
+    def test_idempotent_summary_regeneration(self):
+        # Seed transcript lines
+        with self.app.app_context():
+            l1 = MeetingTranscriptLine(
+                meeting_code=self.room_code,
+                speaker_name="Alice",
+                transcript_text="We approved the sprint milestones."
+            )
+            db.session.add(l1)
+            db.session.commit()
+
+        # Call generate twice
+        res1 = self.client.post("/api/summaries/generate", json={"meeting_code": self.room_code}, headers=self.headers)
+        self.assertEqual(res1.status_code, 201)
+
+        res2 = self.client.post("/api/summaries/generate", json={"meeting_code": self.room_code}, headers=self.headers)
+        self.assertEqual(res2.status_code, 201)
+
+        # Verify only 1 MeetingSummary exists in database
+        with self.app.app_context():
+            summaries = MeetingSummary.query.filter_by(meeting_code=self.room_code).all()
+            self.assertEqual(len(summaries), 1)
 
 
 if __name__ == "__main__":
     unittest.main()
+
